@@ -16,6 +16,13 @@ Use this file as the single source of truth. Do not add a second global instruct
 	- `./mvnw -B test pmd:aggregate-pmd-no-fork pmd:check -P pmd -DskipTests -T2C`
 	- `./mvnw -B pmd:aggregate-cpd pmd:cpd-check -P pmd -DskipTests -T2C`
 - Before finalizing larger changes, run at least `clean package` and the relevant lint profile.
+- Mandatory validation tools (extend this table by adding rows):
+
+| Tool | Config File | Windows Validation Command | Linux/macOS Validation Command |
+| --- | --- | --- | --- |
+| Checkstyle | `.config/checkstyle/checkstyle.xml` | `mvnw.cmd -B checkstyle:check -P checkstyle -T2C` | `./mvnw -B checkstyle:check -P checkstyle -T2C` |
+| PMD | `.config/pmd/java/ruleset.xml` | `mvnw.cmd -B test pmd:aggregate-pmd-no-fork pmd:check -P pmd -DskipTests -T2C` | `./mvnw -B test pmd:aggregate-pmd-no-fork pmd:check -P pmd -DskipTests -T2C` |
+| CPD | `.config/pmd/java/ruleset.xml` | `mvnw.cmd -B pmd:aggregate-cpd pmd:cpd-check -P pmd -DskipTests -T2C` | `./mvnw -B pmd:aggregate-cpd pmd:cpd-check -P pmd -DskipTests -T2C` |
 
 ## Architecture
 - Root project (`pom.xml`) is an aggregator (`template-placeholder-root`) with two modules:
@@ -42,6 +49,7 @@ Use this file as the single source of truth. Do not add a second global instruct
 - `license-maven-plugin` formats license headers during `process-sources` for `src/main/java/**` and `src/test/java/**`.
 - Compiler is configured with `-proc:none`; avoid introducing code that depends on annotation processing.
 - Follow Checkstyle and PMD configuration instead of adding local style exceptions.
+- Entries in the mandatory validation tools table are required quality gates and must not be bypassed or replaced.
 - Magic numbers are allowed in test sources by configuration, but keep production code explicit with named constants.
 - Generated sources under `src/gen/` and `src/generated/` are excluded from quality checks.
 
