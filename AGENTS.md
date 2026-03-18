@@ -45,7 +45,6 @@ Use this file as the single source of truth. Do not add a second global instruct
 - Avoid `StringBuilder` and `StringBuffer` unless there is a clear measured need.
 
 ## Project-Specific Conventions
-- Target Java release is 17 in module POMs. Keep source compatible with Java 17.
 - `license-maven-plugin` formats license headers during `process-sources` for `src/main/java/**` and `src/test/java/**`.
 - Compiler is configured with `-proc:none`; avoid introducing code that depends on annotation processing.
 - Follow Checkstyle and PMD configuration instead of adding local style exceptions.
