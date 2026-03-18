@@ -1,66 +1,70 @@
-# Agents.md — Java / Maven Project Coding Standards
+# Project Guidelines
 
-Single source of truth for AI coding agents. Merges commit-card standards with Checkstyle and PMD rulesets.
+Workspace-level instructions for AI coding agents in this repository.
+Use this file as the single source of truth. Do not add a second global instruction file such as `.github/copilot-instructions.md`.
 
-## Principles
-- Readable code over clever one-liners. Break complex booleans into step-by-step `if` checks with early returns.
-- Extract duplicated logic; don't force premature abstractions. No abstractions for requirements that don't exist yet.
-- One class = one responsibility. No hidden side effects. Return `Optional<T>` when a value may be absent.
-- Validate inputs immediately. Throw `IllegalArgumentException` rather than silently correcting.
-- Never leave messy or dead code behind. Clean up every time you touch code.
-- Every opened resource must be closed — use try-with-resources.
-- Use interfaces and composition so implementations can be swapped. Every committed line must be explainable. Replace magic numbers with named constants.
+## Build And Test
+- Use Maven Wrapper, not a global Maven install.
+- Windows commands:
+	- `mvnw.cmd -B clean package`
+	- `mvnw.cmd -B checkstyle:check -P checkstyle -T2C`
+	- `mvnw.cmd -B test pmd:aggregate-pmd-no-fork pmd:check -P pmd -DskipTests -T2C`
+	- `mvnw.cmd -B pmd:aggregate-cpd pmd:cpd-check -P pmd -DskipTests -T2C`
+- Linux/macOS commands:
+	- `./mvnw -B clean package`
+	- `./mvnw -B checkstyle:check -P checkstyle -T2C`
+	- `./mvnw -B test pmd:aggregate-pmd-no-fork pmd:check -P pmd -DskipTests -T2C`
+	- `./mvnw -B pmd:aggregate-cpd pmd:cpd-check -P pmd -DskipTests -T2C`
+- Before finalizing larger changes, run at least `clean package` and the relevant lint profile.
 
-## Naming
-- Long, descriptive names: `daysUntilExpiration` not `d`. Domain language: `OrderService.processOrder` not `TransactionProcessor.doStuff`.
-- No collection-type suffixes on variables (`Map`, `List`, `Set`). No class suffixes `Helper`/`Util`.
-- Constants `UPPER_SNAKE`, members `camelCase`, packages `lowercase`, types `PascalCase`.
+## Architecture
+- Root project (`pom.xml`) is an aggregator (`template-placeholder-root`) with two modules:
+	- `template-placeholder`: core Java library artifact.
+	- `template-placeholder-demo`: runnable demo JAR depending on the core library.
+- Shared quality rules live in `.config/checkstyle` and `.config/pmd`.
+- CI workflow in `.github/workflows/check-build.yml` validates:
+	- Build on Java 17, 21, and 25.
+	- Checkstyle and PMD/CPD on pull requests (except Renovate PRs).
 
-## Design
-- Composition over inheritance. Constructor injection. Code against interfaces, not concrete types.
-- Use records for data (`public record User(int id, boolean active) {}`). Use enums (with fields/methods) instead of magic values.
-- Always parameterize collections — no raw types. Prefer `List<E>` over arrays. Use bounded wildcards.
-- Use `of(…)`/`from(…)` static factory methods with `private` constructors when clearer.
-- Fields `private final`. No setters. Use `List.of(…)` / `Collections.unmodifiable*`. Prefer new objects over mutation.
-- Complexity limits (PMD): method cyclomatic ≤ 25, class ≤ 150, nested `if` ≤ 4, fields ≤ 50, methods ≤ 100, imports ≤ 200.
+## Code Style
+- Keep code readable over clever. Prefer explicit steps and early returns for complex branching.
+- Validate input immediately and throw `IllegalArgumentException` when contracts are violated.
+- Favor composition over inheritance and keep classes focused on one responsibility.
+- Use descriptive names and domain terms. Avoid names ending in `Helper` or `Util`.
+- Always close resources with try-with-resources.
+- Never swallow exceptions. Preserve stack traces and add context.
+- Do not use `System.out.println` or `printStackTrace`; use structured logging.
+- Do not use `Optional.get()`; use `orElseThrow`, `orElse`, `or`, `map`, or `ifPresent`.
+- Avoid `StringBuilder` and `StringBuffer` unless there is a clear measured need.
 
-## Exceptions
-- Never swallow exceptions. Log with context or rethrow wrapped. Preserve stack traces.
-- Catch specific types — never `Error`, `Throwable`, or `NullPointerException`. No empty `catch` blocks. No return from `finally`.
-- No `System.out.println` / `e.printStackTrace()` — use SLF4J. One logger per class. Use `{}` placeholders.
-- Switches must be exhaustive or have `default`; no implicit fall-through.
+## Project-Specific Conventions
+- Target Java release is 17 in module POMs. Keep source compatible with Java 17.
+- `license-maven-plugin` formats license headers during `process-sources` for `src/main/java/**` and `src/test/java/**`.
+- Compiler is configured with `-proc:none`; avoid introducing code that depends on annotation processing.
+- Follow Checkstyle and PMD configuration instead of adding local style exceptions.
+- Magic numbers are allowed in test sources by configuration, but keep production code explicit with named constants.
+- Generated sources under `src/gen/` and `src/generated/` are excluded from quality checks.
 
-## Security
-- Never commit credentials. Use `@Value("${…}")` or env vars. Hash passwords with `BCryptPasswordEncoder`/`Pbkdf2PasswordEncoder`.
-- Sanitize all inputs (including `ZipEntry` names for ZipSlip). No Java object serialization — use JSON.
-- Audit `pom.xml` regularly for vulnerabilities. Prefer JDK or existing deps over new ones. Modern Java replaces many legacy libs.
+## Common Pitfalls
+- `clean package` can update files (for example license headers). If that happens, review and include intentional changes.
+- On Windows, use `mvnw.cmd`.
+- CI fails if working tree changes are produced during build; keep repo clean after running build commands.
+- Release profiles require signing and publishing credentials; do not modify release setup casually.
 
-## Testing & Documentation
-- JUnit 5 for unit tests, `@SpringBootTest` for integration. Every new feature and every behavioral change must have automated tests. Magic numbers allowed in tests.
-- Simplify assertions. Comments explain *why*, not what. Javadoc for public APIs with non-empty `@param`/`@return`/`@throws`.
-- `@Override` always present. `@Deprecated` must pair with `@deprecated` Javadoc. No `TODO` in committed code.
+## Quality Boundaries
+- Follow complexity limits reflected in PMD rules:
+	- Method cyclomatic complexity up to 25.
+	- Class cyclomatic complexity up to 150.
+	- Nested `if` depth up to 4.
+- Keep cleanup strict: remove unused imports, dead code, and empty blocks while touching files.
+- Add or update automated tests for every behavior change.
 
-## Concurrency
-- No unmanaged `Thread.start()` — use `ExecutorService`/`CompletableFuture`. Always provide a dedicated `Executor` to `supplyAsync`/`runAsync`.
-- No `parallelStream()` for blocking/remote calls. Always provide timeouts to `Future.get()`, `invokeAll`/`invokeAny`; use `poll` over `take`.
-- `DecimalFormat`/`SimpleDateFormat` are thread-unsafe — create locally or use `DateTimeFormatter` (`static final`). No assignment to non-final statics.
-
-## Performance
-- Create once as `private static final`: `Pattern`, `DateTimeFormatter`, `HttpClient`, `Gson`, `SecurityProvider`. No inline regex recompilation.
-- Specify initial buffer size for `ByteArrayOutputStream`/`StringWriter` (e.g., 4096).
-- Enum lookup with >3 constants: use a static `Map`, not streaming `values()`.
-- Use `isEmpty()` not `size() == 0`, `StandardCharsets.UTF_8` not `"UTF-8"`, `EnumSet`/`EnumMap` for enum keys, `Set` (not `List`) for JPA `@OneToMany`/`@ManyToMany`. No reflection in `equals`/`hashCode`/`toString`.
-
-## Banned APIs
-- No `Optional.get()` → use `orElseThrow()`/`orElse()`/`map()`. No `StringBuilder`/`StringBuffer` → use `+`/`StringJoiner`.
-- No `System.setProperty`, `System.gc()`, `@PostConstruct`, `@PreDestroy`, `java.util.Date`/`Calendar` → use `java.time.*`, constructor injection, `AutoCloseable`.
-- No double-brace init. Use `"literal".equals(x)`. Prefer method references over lambdas. Try-with-resources for all `AutoCloseable`.
-
-## Cleanup
-- Remove all unused imports, fields, methods, parameters, variables, assignments. Remove empty blocks/statements, unnecessary parens/semicolons.
-- `default` last in `switch`. Implement `equals` + `hashCode` together. Use `this.` for instance members. Inline variables when possible. Merge identical `catch` branches. Simplify booleans.
-- Every class in a package. No `clone()`/`finalize()`. Utility classes get private constructors. Non-extendable classes `final`. Interfaces declare behavior. Parameters `final`. Use `100L` not `100l`.
-
-## Automation & Suppression
-- Integrate `maven-checkstyle-plugin` and `maven-pmd-plugin` with `failsOnError=true`. Use auto-formatters before commit. Refactor continuously.
-- Checkstyle suppression: `// CHECKSTYLE:OFF RuleName` / `// CHECKSTYLE:ON RuleName`. PMD suppression: `@SuppressWarnings("PMD.RuleName")`. Generated code (`src/gen/`|`src/generated/`) is auto-excluded.
+## Key References
+- `README.md`
+- `CONTRIBUTING.md`
+- `pom.xml`
+- `template-placeholder/pom.xml`
+- `template-placeholder-demo/pom.xml`
+- `.config/checkstyle/checkstyle.xml`
+- `.config/pmd/java/ruleset.xml`
+- `.github/workflows/check-build.yml`
